@@ -233,6 +233,26 @@ app.get('/thumbnail/:fileId', async (req, res) => {
     }
 });
 
+// List all files endpoint
+app.get('/files', async (req, res) => {
+    try {
+        const data = await loadData();
+        const filesList = Object.values(data.files).map(file => ({
+            id: file.id,
+            originalName: file.originalName,
+            currentEdition: file.currentEdition,
+            totalEditions: file.totalEditions,
+            remainingEditions: Math.max(0, file.totalEditions - file.currentEdition + 1),
+            thumbnailUrl: file.thumbnailFilename ? `/thumbnail/${file.id}` : null,
+            uploadedAt: file.uploadedAt
+        }));
+        res.json({ files: filesList });
+    } catch (err) {
+        console.error('List files error:', err);
+        res.status(500).json({ error: 'Failed to list files' });
+    }
+});
+
 // Initialize and start server
 initializeStorage().then(() => {
     app.listen(PORT, () => {
