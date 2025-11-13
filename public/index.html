@@ -235,6 +235,67 @@
             border-radius: 10px;
             margin-top: 15px;
         }
+
+        .thumbnail-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .thumbnail {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 3px solid #667eea;
+            flex-shrink: 0;
+        }
+
+        .thumbnail-placeholder {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2em;
+            flex-shrink: 0;
+        }
+
+        .file-details {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+            word-break: break-word;
+        }
+
+        .edition-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .edition-number {
+            font-size: 1.3em;
+            color: #667eea;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -258,8 +319,9 @@
             <button id="uploadBtn" disabled>Upload Anonymously</button>
             <div class="result" id="uploadResult">
                 <h3>✅ Upload Successful!</h3>
+                <div id="uploadThumbnailContainer"></div>
                 <p>File ID: <span id="fileId"></span></p>
-                <p>Edition: <span id="edition"></span> / 10</p>
+                <p>Edition: <span id="edition" class="edition-number"></span> / 10</p>
                 <div class="share-link" id="shareLink"></div>
                 <button class="copy-btn" id="copyBtn">Copy Link</button>
             </div>
@@ -318,6 +380,31 @@
                     document.getElementById('edition').textContent = data.edition;
                     const shareUrl = `${window.location.origin}/download/${data.fileId}`;
                     document.getElementById('shareLink').textContent = shareUrl;
+                    
+                    // Display thumbnail if available
+                    const thumbnailContainer = document.getElementById('uploadThumbnailContainer');
+                    if (data.thumbnailUrl) {
+                        thumbnailContainer.innerHTML = `
+                            <div class="thumbnail-container">
+                                <img src="${data.thumbnailUrl}" alt="Thumbnail" class="thumbnail">
+                                <div class="file-details">
+                                    <div class="file-name">📄 ${file.name}</div>
+                                    <span class="edition-badge">Edition ${data.edition} of ${data.maxEditions}</span>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        thumbnailContainer.innerHTML = `
+                            <div class="thumbnail-container">
+                                <div class="thumbnail-placeholder">📄</div>
+                                <div class="file-details">
+                                    <div class="file-name">${file.name}</div>
+                                    <span class="edition-badge">Edition ${data.edition} of ${data.maxEditions}</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
                     uploadResult.classList.add('success');
 
                     // Copy button handler
@@ -355,10 +442,35 @@
 
                 if (response.ok) {
                     const remainingPercent = (data.remainingEditions / data.totalEditions) * 100;
+                    
+                    // Build thumbnail HTML
+                    let thumbnailHTML = '';
+                    if (data.thumbnailUrl) {
+                        thumbnailHTML = `
+                            <div class="thumbnail-container">
+                                <img src="${data.thumbnailUrl}" alt="Thumbnail" class="thumbnail">
+                                <div class="file-details">
+                                    <div class="file-name">📄 ${data.originalName}</div>
+                                    <span class="edition-badge">Edition ${data.currentEdition} of ${data.totalEditions}</span>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        thumbnailHTML = `
+                            <div class="thumbnail-container">
+                                <div class="thumbnail-placeholder">📄</div>
+                                <div class="file-details">
+                                    <div class="file-name">${data.originalName}</div>
+                                    <span class="edition-badge">Edition ${data.currentEdition} of ${data.totalEditions}</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
                     downloadInfo.innerHTML = `
                         <div class="file-info">
-                            <p><strong>File:</strong> ${data.originalName}</p>
-                            <p><strong>Current Edition:</strong> ${data.currentEdition} / ${data.totalEditions}</p>
+                            ${thumbnailHTML}
+                            <p><strong>Current Edition:</strong> <span class="edition-number">${data.currentEdition}</span> / ${data.totalEditions}</p>
                             <p><strong>Remaining Downloads:</strong> ${data.remainingEditions}</p>
                             <div class="editions-bar">
                                 <div class="editions-fill" style="width: ${remainingPercent}%">

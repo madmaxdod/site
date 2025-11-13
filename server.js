@@ -65,6 +65,23 @@ app.post('/upload', upload.single('file'), async (req, res) => {
         const fileId = crypto.randomBytes(8).toString('hex');
         const originalPath = req.file.path;
         const ext = path.extname(req.file.filename);
+        const isImage = req.file.mimetype.startsWith('image/');
+        
+        // Generate thumbnail for images
+        let thumbnailFilename = null;
+        if (isImage) {
+            try {
+                thumbnailFilename = `thumb_${req.file.filename}`;
+                const thumbnailPath = path.join(UPLOADS_DIR, thumbnailFilename);
+                await sharp(originalPath)
+                    .resize(200, 200, { fit: 'cover' })
+                    .jpeg({ quality: 80 })
+                    .toFile(thumbnailPath);
+            } catch (thumbErr) {
+                console.error('Thumbnail generation error:', thumbErr);
+                // Continue without thumbnail if generation fails
+            }
+        }
         
         // Store file metadata
         const data = await loadData();
@@ -72,6 +89,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
             id: fileId,
             originalName: req.file.originalname,
             filename: req.file.filename,
+            thumbnailFilename: thumbnailFilename,
             mimetype: req.file.mimetype,
             size: req.file.size,
             currentEdition: 1,
@@ -83,6 +101,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
         res.json({
             fileId: fileId,
             downloadUrl: `/download/${fileId}`,
+            thumbnailUrl: thumbnailFilename ? `/thumbnail/${fileId}` : null,
             edition: 1,
             maxEditions: MAX_EDITIONS
         });
@@ -180,11 +199,37 @@ app.get('/info/:fileId', async (req, res) => {
             currentEdition: fileInfo.currentEdition,
             totalEditions: fileInfo.totalEditions,
             remainingEditions: Math.max(0, fileInfo.totalEditions - fileInfo.currentEdition + 1),
+            thumbnailUrl: fileInfo.thumbnailFilename ? `/thumbnail/${fileId}` : null,
             uploadedAt: fileInfo.uploadedAt
         });
     } catch (err) {
         console.error('Info error:', err);
         res.status(500).json({ error: 'Failed to get file info' });
+    }
+});
+
+// Thumbnail endpoint
+app.get('/thumbnail/:fileId', async (req, res) => {
+    try {
+        const { fileId } = req.params;
+        const data = await loadData();
+        const fileInfo = data.files[fileId];
+
+        if (!fileInfo || !fileInfo.thumbnailFilename) {
+            return res.status(404).json({ error: 'Thumbnail not found' });
+        }
+
+        const thumbnailPath = path.join(UPLOADS_DIR, fileInfo.thumbnailFilename);
+        
+        try {
+            await fs.access(thumbnailPath);
+            res.sendFile(thumbnailPath);
+        } catch {
+            return res.status(404).json({ error: 'Thumbnail file not found on disk' });
+        }
+    } catch (err) {
+        console.error('Thumbnail error:', err);
+        res.status(500).json({ error: 'Failed to get thumbnail' });
     }
 });
 
