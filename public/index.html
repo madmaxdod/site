@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Degrading Editions</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .section {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+
+        input[type="file"],
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #333;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #555;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .tile {
+            border: 1px solid #ddd;
+            padding: 10px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .tile:hover {
+            border-color: #999;
+        }
+
+        .tile img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border: 1px solid #eee;
+        }
+
+        .tile-info {
+            margin-top: 8px;
+            font-size: 12px;
+        }
+
+        .tile-name {
+            font-weight: bold;
+            margin-bottom: 4px;
+            word-break: break-word;
+        }
+
+        .tile-edition {
+            color: #666;
+        }
+
+        .file-details {
+            margin-top: 15px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            background: #fafafa;
+        }
+
+        .file-details p {
+            margin: 5px 0;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .message {
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+        }
+
+        .success {
+            background: #e8f5e9;
+            border-color: #4caf50;
+        }
+
+        .error {
+            background: #ffebee;
+            border-color: #f44336;
+        }
+
+        .info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Degrading Editions</h1>
+    <p class="info">Anonymous media hosting. Each file has 10 editions. Quality degrades with each download.</p>
+
+    <!-- Upload Section -->
+    <div class="section">
+        <h2>Upload</h2>
+        <input type="file" id="fileInput" accept="image/*,video/*">
+        <button id="uploadBtn" disabled>Upload</button>
+        <div id="uploadMessage"></div>
+    </div>
+
+    <!-- Gallery Section -->
+    <div class="section">
+        <h2>All Files</h2>
+        <button id="refreshBtn">Refresh Gallery</button>
+        <div class="grid" id="gallery"></div>
+    </div>
+
+    <!-- File Details Section -->
+    <div class="section hidden" id="detailsSection">
+        <h2>File Details</h2>
+        <div id="fileDetails"></div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const uploadMessage = document.getElementById('uploadMessage');
+        const gallery = document.getElementById('gallery');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const detailsSection = document.getElementById('detailsSection');
+        const fileDetails = document.getElementById('fileDetails');
+
+        // Enable upload button when file selected
+        fileInput.addEventListener('change', () => {
+            uploadBtn.disabled = !fileInput.files.length;
+        });
+
+        // Upload file
+        uploadBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading...';
+            uploadMessage.innerHTML = '';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    uploadMessage.innerHTML = `<div class="message success">Uploaded! File ID: ${data.fileId}</div>`;
+                    fileInput.value = '';
+                    loadGallery();
+                } else {
+                    uploadMessage.innerHTML = `<div class="message error">Error: ${data.error}</div>`;
+                }
+            } catch (err) {
+                uploadMessage.innerHTML = `<div class="message error">Upload failed: ${err.message}</div>`;
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload';
+            }
+        });
+
+        // Load gallery
+        async function loadGallery() {
+            try {
+                const response = await fetch('/files');
+                const data = await response.json();
+
+                if (response.ok && data.files) {
+                    gallery.innerHTML = '';
+                    
+                    if (data.files.length === 0) {
+                        gallery.innerHTML = '<p class="info">No files uploaded yet.</p>';
+                        return;
+                    }
+
+                    data.files.forEach(file => {
+                        const tile = document.createElement('div');
+                        tile.className = 'tile';
+                        tile.onclick = () => showFileDetails(file.id);
+
+                        const img = document.createElement('img');
+                        img.src = file.thumbnailUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>';
+                        img.alt = file.originalName;
+
+                        const info = document.createElement('div');
+                        info.className = 'tile-info';
+                        info.innerHTML = `
+                            <div class="tile-name">${file.originalName}</div>
+                            <div class="tile-edition">Edition ${file.currentEdition}/${file.totalEditions}</div>
+                            <div class="tile-edition">${file.remainingEditions} left</div>
+                        `;
+
+                        tile.appendChild(img);
+                        tile.appendChild(info);
+                        gallery.appendChild(tile);
+                    });
+                }
+            } catch (err) {
+                gallery.innerHTML = `<p class="error">Failed to load files: ${err.message}</p>`;
+            }
+        }
+
+        // Show file details
+        async function showFileDetails(fileId) {
+            try {
+                const response = await fetch(`/info/${fileId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    detailsSection.classList.remove('hidden');
+                    fileDetails.innerHTML = `
+                        <p><strong>Name:</strong> ${data.originalName}</p>
+                        <p><strong>File ID:</strong> ${data.id}</p>
+                        <p><strong>Current Edition:</strong> ${data.currentEdition} / ${data.totalEditions}</p>
+                        <p><strong>Remaining:</strong> ${data.remainingEditions}</p>
+                        <p><strong>Uploaded:</strong> ${new Date(data.uploadedAt).toLocaleString()}</p>
+                        ${data.thumbnailUrl ? `<p><img src="${data.thumbnailUrl}" style="max-width: 200px; margin-top: 10px; border: 1px solid #ddd;"></p>` : ''}
+                        <button onclick="downloadFile('${fileId}')" style="margin-top: 10px;">Download Edition ${data.currentEdition}</button>
+                    `;
+                    detailsSection.scrollIntoView({ behavior: 'smooth' });
+                }
+            } catch (err) {
+                alert('Failed to load file details: ' + err.message);
+            }
+        }
+
+        // Download file
+        function downloadFile(fileId) {
+            window.location.href = `/download/${fileId}`;
+            setTimeout(() => {
+                loadGallery();
+                showFileDetails(fileId);
+            }, 1000);
+        }
+
+        // Refresh gallery
+        refreshBtn.addEventListener('click', loadGallery);
+
+        // Load gallery on page load
+        loadGallery();
+    </script>
+</body>
+</html>
