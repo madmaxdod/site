@@ -9,6 +9,8 @@ An anonymous media hosting website where uploaded files have limited editions (1
 - **Quality Degradation**: Each download reduces image quality by 10%, progressively degrading the file
 - **Free Downloads**: All downloads are free, but limited by the edition system
 - **Automatic Compression**: Images are automatically compressed using Sharp library
+- **Thumbnail Generation**: Automatic 200x200px thumbnails for quick preview
+- **Visual File Info**: File names, thumbnails, and edition numbers prominently displayed
 
 ## How It Works
 
@@ -61,7 +63,7 @@ The server will run on `http://localhost:3000` by default.
 ### POST /upload
 Upload a new file anonymously
 - **Body**: multipart/form-data with 'file' field
-- **Response**: `{ fileId, downloadUrl, edition, maxEditions }`
+- **Response**: `{ fileId, downloadUrl, thumbnailUrl, edition, maxEditions }`
 
 ### GET /download/:fileId
 Download the current edition of a file
@@ -69,7 +71,11 @@ Download the current edition of a file
 
 ### GET /info/:fileId
 Get information about a file
-- **Response**: `{ id, originalName, currentEdition, totalEditions, remainingEditions, uploadedAt }`
+- **Response**: `{ id, originalName, currentEdition, totalEditions, remainingEditions, thumbnailUrl, uploadedAt }`
+
+### GET /thumbnail/:fileId
+Get the thumbnail image for a file
+- **Response**: JPEG image (200x200px)
 
 ## Deployment
 
